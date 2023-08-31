@@ -1,20 +1,72 @@
-import mujoco_py
 import gymnasium as gym
-# import os
+import mujoco_py
 from matplotlib import pyplot as plt
 
-# xml_path = os.path.join(mj_path, 'model', 'humanoid.xml')
-# model = mujoco_py.load_model_from_path(xml_path)
-# sim = mujoco_py.MjSim(model)
+from typing import Tuple
 
-env = gym.make('Ant-v4', render_mode='human')
-observation, info = env.reset()
+class SAC:
+    def __init__(self, env, policy, qf1, qf2, vf, tau):
+        self.env = env
+        self.policy = policy
+        self.qf1 = qf1
+        self.qf2 = qf2
+        self.vf = vf
+        self.tau = tau
 
-for _ in range(1000):
-    action = env.action_space.sample()
-    observation, reward, terminated, truncated, info = env.step(action)
-
-    if terminated or truncated:
+    def train(self) -> float:
         observation, info = env.reset()
+        done = truncated = False
+        while not (done or truncated):
+            action = env.action_space.sample()
+            observation, reward, terminated, truncated, info = env.step(action)
+        env.close()
+        print('train complete')
 
-env.close()
+    def evaluate(self):
+        print('result!')
+
+    def achieve_goal(self) -> bool:
+        return False
+
+if __name__ == '__main__':
+    MAX_EPISODES = 10
+
+    env = gym.make('Ant-v4')
+    policy = None
+    qf1 = None
+    qf2 = None
+    vf = None
+    tau = None
+
+    sac = SAC(
+        env, 
+        policy,
+        qf1,
+        qf2,
+        vf,
+        tau
+    )
+
+    train_rewards = []
+    for episode in range(1, MAX_EPISODES+1):
+        # Train
+        sac.train()
+
+        # Evaluation
+        sac.evaluate()
+        if sac.achieve_goal():
+            break
+
+    # Show
+    env = gym.make('Ant-v4', render_mode='human')
+
+    observation, info = env.reset()
+    done = truncated = False
+    while not (done or truncated):
+        action = env.action_space.sample()
+        observation, reward, terminated, truncated, info = env.step(action)
+    env.close()
+
+    # Plot
+    plt.plot(train_rewards)
+    plt.show()
