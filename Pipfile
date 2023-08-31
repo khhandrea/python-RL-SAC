@@ -5,7 +5,9 @@ name = "pypi"
 
 [packages]
 gymnasium = {version = "*", extras = ["mujoco"]}
-mujoco-py = "*"
+cython = "<3"
+mujoco-py = ">=2.1,<2.2"
+matplotlib = "*"
 
 [dev-packages]
 
