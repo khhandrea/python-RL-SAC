@@ -7,7 +7,10 @@ from matplotlib import pyplot as plt
 from typing import Tuple
 
 if __name__ == '__main__':
-    env = gym.make('Ant-v4')
+    ENV = 'Ant-v4'
+    HEALTHY_Z_RANGE = (0.259, 1.0)
+
+    env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE)
 
     observation_num = env.observation_space.shape
     action_num = env.action_space.shape
@@ -22,7 +25,7 @@ if __name__ == '__main__':
     lr = 3e-4
     scale_reward = 20
     discount = 0.99
-    episode_num = 10
+    episode_num = 1_000_000
     batch_size = 256
 
     sac = SAC(
@@ -40,18 +43,18 @@ if __name__ == '__main__':
         batch_size=batch_size
     )
 
-    train_rewards = []
-    sac.train()
+    train_rewards = sac.train()
 
-    # Show
-    env = gym.make('Ant-v4', render_mode='human')
+    # Demonstrate
+    env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
 
     observation, info = env.reset()
-    done = truncated = False
-    while not (done or truncated):
+    terminated = truncated = False
+    while not (terminated or truncated):
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)
     env.close()
+    print(info)
 
     # Plot
     plt.plot(train_rewards)

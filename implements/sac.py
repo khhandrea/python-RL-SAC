@@ -1,13 +1,16 @@
+from torch import Tensor, tensor
 from torch import nn
+from torch.nn.functional import softmax
+from torch.distribution import Categorical
 
 class SAC:
     def __init__(
             self, 
             env, 
-            policy: nn.module, 
-            qf1: nn.module, 
-            qf2: nn.module, 
-            vf: nn.module, 
+            policy: nn.Module, 
+            qf1: nn.Module, 
+            qf2: nn.Module, 
+            vf: nn.Module, 
             pool_size: int,
             tau: float,
             lr: float,
@@ -45,19 +48,49 @@ class SAC:
         return False
 
     def train(self) -> float:
+        terminated = truncated = False
+        episode_rewards = []
+
+        # At each episode
         for episode in range(self.episode_num):
-            # One episode
-            observation, info = self.env.reset()
-            done = truncated = False
-            while not (done or truncated):
-                action = self.env.action_space.sample()
-                observation, reward, terminated, truncated, info = self.env.step(action)
+            state, info = self.env.reset()
+            episode_reward = 0
+
+            # At each step
+            while not (terminated or truncated):
+                # 1. value = critic(state)
+                # 2. action = critic(state)
+                # 3. policy = actor(state)
+                # 4. action = policy.sample()
+                # 5. next_state, reward = env.step(action)
+                # 6. value_next = critic(next_state)
+                # 7. minimize loss
+
+                state_tensor = tensor(state).unsqueeze(0)
+
+                _qf1_t = self.qf1(state_tensor)
+                _qf2_t = self.qf2(state_tensor)
+                _vf_t = self.vf(state_tensor)
+                action_pred = self.policy(state_tensor) # 3
+                action_prob = softmax(action_pred, dim=-1)
+                dist = Categorical(action_prob)
+                action = dist.sample() # 4
+                # action = self.env.action_space.sample() # 4
+                state, reward, terminated, truncated, info = self.env.step(action) # 5
+                # 6
+                # 7
+
+                episode_reward += reward
             self.env.close()
 
-            self._evalute()
+            episode_rewards.append(episode_reward)
+            self._evaluate()
 
+            # Gradient step
             for gradient_step in range(self.batch_size):
                 self._update_critic()
                 self._update_actor()
                 self._smooth_target()
         print('train complete')
+
+        return episode_rewards

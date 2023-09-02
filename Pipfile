@@ -8,6 +8,7 @@ gymnasium = {version = "*", extras = ["mujoco"]}
 cython = "<3"
 mujoco-py = ">=2.1,<2.2"
 matplotlib = "*"
+torch = "==2.0.1"
 
 [dev-packages]
 
