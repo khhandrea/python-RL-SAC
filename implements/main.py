@@ -8,7 +8,7 @@ from typing import Tuple
 
 if __name__ == '__main__':
     ENV = 'Ant-v4'
-    HEALTHY_Z_RANGE = (0.259, 1.0)
+    HEALTHY_Z_RANGE = (0.2, 1.0)
 
     env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE)
 
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     lr = 3e-4
     scale_reward = 20
     discount = 0.99
-    episode_num = 1_000_000
+    episode_num = 10
     batch_size = 256
 
     sac = SAC(

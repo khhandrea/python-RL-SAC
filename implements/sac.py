@@ -1,7 +1,7 @@
-from torch import Tensor, tensor
+from torch import Tensor, tensor, float32
 from torch import nn
-from torch.nn.functional import softmax
-from torch.distribution import Categorical
+from torch.nn.functional import tanh
+from torch.distributions import Categorical
 
 class SAC:
     def __init__(
@@ -33,27 +33,25 @@ class SAC:
         self.batch_size = batch_size
 
     def _update_critic(self):
-        print('update critic(q1, q2)')
+        pass
 
     def _update_actor(self):
-        print('update actor(V, pi)')
+        pass
 
     def _smooth_target(self):
-        print('smooth target(V)')
+        pass
 
     def _evaluate(self):
-        print('result!')
+        pass
 
-    def _achieve_goal(self) -> bool:
-        return False
 
     def train(self) -> float:
-        terminated = truncated = False
         episode_rewards = []
 
         # At each episode
         for episode in range(self.episode_num):
             state, info = self.env.reset()
+            terminated = truncated = False
             episode_reward = 0
 
             # At each step
@@ -66,17 +64,17 @@ class SAC:
                 # 6. value_next = critic(next_state)
                 # 7. minimize loss
 
-                state_tensor = tensor(state).unsqueeze(0)
+                state_tensor = tensor(state, dtype=float32).unsqueeze(0)
 
-                _qf1_t = self.qf1(state_tensor)
-                _qf2_t = self.qf2(state_tensor)
-                _vf_t = self.vf(state_tensor)
-                action_pred = self.policy(state_tensor) # 3
-                action_prob = softmax(action_pred, dim=-1)
-                dist = Categorical(action_prob)
-                action = dist.sample() # 4
-                # action = self.env.action_space.sample() # 4
-                state, reward, terminated, truncated, info = self.env.step(action) # 5
+                qf1_t = self.qf1(state_tensor)
+                qf2_t = self.qf2(state_tensor)
+                vf_t = self.vf(state_tensor)
+                actions = self.policy(state_tensor) # 3
+                action_prob = tanh(actions)
+                # action_dist = Categorical(action_prob)
+                # action = action_dist.sample() # 4
+                # action = self.env.action_space.sample()
+                state, reward, terminated, truncated, info = self.env.step(action_prob.detach().numpy()[0]) # 5
                 # 6
                 # 7
 
@@ -84,6 +82,7 @@ class SAC:
             self.env.close()
 
             episode_rewards.append(episode_reward)
+            print('reward: ', episode_reward)
             self._evaluate()
 
             # Gradient step
