@@ -70,11 +70,8 @@ class SAC:
                 qf2_t = self.qf2(state_tensor)
                 vf_t = self.vf(state_tensor)
                 actions = self.policy(state_tensor) # 3
-                action_prob = tanh(actions)
-                # action_dist = Categorical(action_prob)
-                # action = action_dist.sample() # 4
-                # action = self.env.action_space.sample()
-                state, reward, terminated, truncated, info = self.env.step(action_prob.detach().numpy()[0]) # 5
+                actions_normalized = tanh(actions).detach().numpy()[0]
+                state, reward, terminated, truncated, info = self.env.step(actions_normalized) # 5
                 # 6
                 # 7
 
@@ -87,6 +84,7 @@ class SAC:
 
             # Gradient step
             for gradient_step in range(self.batch_size):
+                # pool.random_batch
                 self._update_critic()
                 self._update_actor()
                 self._smooth_target()
