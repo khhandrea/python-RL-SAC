@@ -56,7 +56,7 @@ class SAC:
             batch_state: Tensor
     ) -> Tuple[Tensor, Tensor]:
         policy_output = self._policy(batch_state)
-        normal = Normal(policy_output, torch.ones(policy_output))
+        normal = Normal(policy_output, torch.ones_like(policy_output))
         x_t = normal.rsample()
         actions = torch.tanh(x_t)
 
@@ -83,12 +83,13 @@ class SAC:
 
         qf1_t = self._qf1(torch.cat([batch_state, batch_actions], 1))
         qf2_t = self._qf2(torch.cat([batch_state, batch_actions], 1))
-        min_qf_t = torch.min(qf1_t, qf2_t)
+        with torch.no_grad():
+            vf_next = self._smooth_vf(batch_next_state)
+            ys = self._scale_reward * batch_reward + (1 - batch_done) * self._discount * vf_next
+            log_pi = torch.log(self._policy(batch_state))
+            min_qf_t = torch.min(qf1_t, qf2_t)
 
         # Update qf1, qf2
-        vf_next = self._smooth_vf(batch_next_state)
-        ys = self._scale_reward * batch_reward + (1 - batch_done) * self._discount * vf_next
-
         qf1_loss = 0.5 * torch.mean((ys - qf1_t)**2)
         qf2_loss = 0.5 * torch.mean((ys - qf2_t)**2)
 
@@ -101,8 +102,8 @@ class SAC:
 
         # Update policy 
         sample_actions, sample_log_pi = self._sample_actions(batch_state)
-        qf1_pi = self._qf1(batch_state, sample_actions)
-        qf2_pi = self._qf2(batch_state, sample_actions)
+        qf1_pi = self._qf1(torch.cat([batch_state, sample_actions], 1))
+        qf2_pi = self._qf2(torch.cat([batch_state, sample_actions], 1))
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
         policy_loss = torch.mean(sample_log_pi - min_qf_pi)
@@ -113,7 +114,6 @@ class SAC:
         
         # Update vf
         vf_t = self._vf(batch_state)
-        log_pi = torch.log(self._policy(batch_state))
 
         vf_loss = 0.5 * torch.mean((vf_t - (min_qf_t - log_pi))**2)
 
