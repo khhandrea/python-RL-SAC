@@ -16,11 +16,11 @@ if __name__ == '__main__':
     action_num = env.action_space.shape
     hidden_layer_num = 256
 
-    policy = MLP(27, hidden_layer_num, hidden_layer_num, 8)
-    qf1 = MLP(27, hidden_layer_num, hidden_layer_num, 1)
-    qf2 = MLP(27, hidden_layer_num, hidden_layer_num, 1)
-    vf = MLP(27, hidden_layer_num, hidden_layer_num, 1)
-    pool_size = 1e6
+    policy = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
+    qf1 = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
+    qf2 = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
+    vf = MLP(observation_num, hidden_layer_num, hidden_layer_num, 1)
+    pool_size = 1_000_000
     tau = 0.005
     lr = 3e-4
     scale_reward = 20
@@ -54,8 +54,8 @@ if __name__ == '__main__':
         action = env.action_space.sample()
         observation, reward, terminated, truncated, info = env.step(action)
     env.close()
-    print(info)
 
     # Plot
     plt.plot(train_rewards)
+    plt.ylim(0, 2000)
     plt.show()

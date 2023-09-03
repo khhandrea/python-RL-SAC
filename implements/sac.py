@@ -1,3 +1,6 @@
+from replay_buffer import ReplayBuffer
+
+import torch
 from torch import Tensor, tensor, float32
 from torch import nn
 from torch.nn.functional import tanh
@@ -19,75 +22,76 @@ class SAC:
             episode_num: int,
             batch_size: int
     ):
-        self.env = env
-        self.policy = policy
-        self.qf1 = qf1
-        self.qf2 = qf2
-        self.vf = vf
-        self.pool_size = pool_size
-        self.tau = tau
-        self.lr = lr
-        self.scale_reward = scale_reward
-        self.discount = discount
-        self.episode_num = episode_num
-        self.batch_size = batch_size
+        self._env = env
+        self._policy = policy
+        self._qf1 = qf1
+        self._qf2 = qf2
+        self._vf = vf
+        self._pool = ReplayBuffer(env, pool_size)
+        self._tau = tau
+        self._lr = lr
+        self._scale_reward = scale_reward
+        self._discount = discount
+        self._episode_num = episode_num
+        self._batch_size = batch_size
 
+        self.episode_rewards = []
+
+    # Update qf1, qf2
     def _update_critic(self):
+        # batch_state_tensor = tensor(self._batch['state'])
+        # vf_next = self._vf(batch_state_tensor)
+        # ys = self._scale_reward * self._batch['reward'] + (1 - self._batch['done']) * self._discount * vf_next
+        # _td_loss1_t = 0.5 * torch.mean((ys - self.)**2)
         pass
 
+    # Update policy, vf
     def _update_actor(self):
+        self._policy
+        self._vf
         pass
 
     def _smooth_target(self):
         pass
 
     def _evaluate(self):
-        pass
-
+        print(self.episode_rewards[-1])
 
     def train(self) -> float:
-        episode_rewards = []
-
         # At each episode
-        for episode in range(self.episode_num):
-            state, info = self.env.reset()
+        for episode in range(self._episode_num):
+            state, info = self._env.reset()
             terminated = truncated = False
             episode_reward = 0
 
             # At each step
             while not (terminated or truncated):
-                # 1. value = critic(state)
-                # 2. action = critic(state)
-                # 3. policy = actor(state)
-                # 4. action = policy.sample()
-                # 5. next_state, reward = env.step(action)
-                # 6. value_next = critic(next_state)
-                # 7. minimize loss
-
                 state_tensor = tensor(state, dtype=float32).unsqueeze(0)
+                actions_pred = self._policy(state_tensor) # 3
+                actions = tanh(actions_pred).detach().numpy()[0]
+                next_state, reward, terminated, truncated, info = self._env.step(actions) # 5
 
-                qf1_t = self.qf1(state_tensor)
-                qf2_t = self.qf2(state_tensor)
-                vf_t = self.vf(state_tensor)
-                actions = self.policy(state_tensor) # 3
-                actions_normalized = tanh(actions).detach().numpy()[0]
-                state, reward, terminated, truncated, info = self.env.step(actions_normalized) # 5
-                # 6
-                # 7
-
+                self._pool.add_sample(state, actions, reward, terminated or truncated, next_state)
                 episode_reward += reward
-            self.env.close()
+            self._env.close()
 
-            episode_rewards.append(episode_reward)
-            print('reward: ', episode_reward)
+            self.episode_rewards.append(episode_reward)
             self._evaluate()
 
             # Gradient step
-            for gradient_step in range(self.batch_size):
-                # pool.random_batch
-                self._update_critic()
-                self._update_actor()
-                self._smooth_target()
+            self._batch = self._pool.random_batch(self._batch_size)
+
+            # end = 1 if (terminated or truncated) else 0
+            # next_state_tensor = tensor(next_state, dtype=float32).unsqueeze(0)
+
+            
+            # self._min_log_target = torch.min(self._qf1_t, self._qf2_t)
+            # self._vf_t = self._vf(state_tensor)
+            # self._vf_next_t = self._vf(next_state_tensor)
+
+            self._update_critic()
+            self._update_actor()
+            self._smooth_target()
         print('train complete')
 
-        return episode_rewards
+        return self.episode_rewards
