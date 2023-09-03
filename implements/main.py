@@ -12,14 +12,16 @@ if __name__ == '__main__':
 
     env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE)
 
-    observation_num = env.observation_space.shape
-    action_num = env.action_space.shape
+    observation_num = env.observation_space.shape[0]
+    action_num = env.action_space.shape[0]
     hidden_layer_num = 256
 
     policy = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
-    qf1 = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
-    qf2 = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
+    qf1 = MLP(observation_num + action_num, hidden_layer_num, hidden_layer_num, 1)
+    qf2 = MLP(observation_num + action_num, hidden_layer_num, hidden_layer_num, 1)
     vf = MLP(observation_num, hidden_layer_num, hidden_layer_num, 1)
+    smooth_vf = MLP(observation_num, hidden_layer_num, hidden_layer_num, 1)
+
     pool_size = 1_000_000
     tau = 0.005
     lr = 3e-4
@@ -34,6 +36,7 @@ if __name__ == '__main__':
         qf1=qf1,
         qf2=qf2,
         vf=vf,
+        smooth_vf=smooth_vf,
         pool_size=pool_size,
         tau=tau,
         lr=lr,
