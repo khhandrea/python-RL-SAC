@@ -60,5 +60,4 @@ if __name__ == '__main__':
 
     # Plot
     plt.plot(train_rewards)
-    plt.ylim(0, 2000)
     plt.show()

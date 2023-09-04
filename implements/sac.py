@@ -63,7 +63,6 @@ class SAC:
         log_prob = normal.log_prob(x_t)
         log_prob -= torch.log((1 - actions.pow(2)) + self._epsilon)
         
-
         return actions, log_prob
 
     # Update qf1, qf2
@@ -86,7 +85,7 @@ class SAC:
         with torch.no_grad():
             vf_next = self._smooth_vf(batch_next_state)
             ys = self._scale_reward * batch_reward + (1 - batch_done) * self._discount * vf_next
-            log_pi = torch.log(self._policy(batch_state))
+            actions, log_pi = self._sample_actions(batch_state)
             min_qf_t = torch.min(qf1_t, qf2_t)
 
         # Update qf1, qf2
@@ -121,6 +120,8 @@ class SAC:
         vf_loss.backward()
         vf_optimizer.step()
 
+        # print(qf1_loss, policy_loss, vf_loss)
+
     def _smooth_target(self):
         for target_param, param in zip(self._smooth_vf.parameters(), self._vf.parameters()):
             target_param.data.copy_(target_param.data * (1.0 - self._tau) + param.data * self._tau)
@@ -138,8 +139,8 @@ class SAC:
             # At each step
             while not (terminated or truncated):
                 state_tensor = tensor(state, dtype=float32).to(self._device).unsqueeze(0)
-                actions_pred = self._policy(state_tensor) # 3
-                actions = tanh(actions_pred).to('cpu').detach().numpy()[0]
+                actions_tensor, log_pi = self._sample_actions(state_tensor) # 3
+                actions = actions_tensor.to('cpu').detach().numpy()[0]
                 next_state, reward, terminated, truncated, info = self._env.step(actions) # 5
 
                 self._pool.add_sample(state, actions, reward, terminated or truncated, next_state)
