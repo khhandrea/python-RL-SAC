@@ -3,6 +3,7 @@ from sac import SAC
 
 import gymnasium as gym
 from matplotlib import pyplot as plt
+from torch import tensor, float32
 
 from typing import Tuple
 
@@ -25,9 +26,9 @@ if __name__ == '__main__':
     pool_size = 1_000_000
     tau = 0.005
     lr = 3e-4
-    scale_reward = 20
+    scale_reward = 5
     discount = 0.99
-    episode_num = 10
+    episode_num = 100
     batch_size = 256
 
     sac = SAC(
@@ -46,18 +47,38 @@ if __name__ == '__main__':
         batch_size=batch_size
     )
 
-    train_rewards = sac.train()
+    train_rewards, qf1_losses, qf2_losses, policy_losses, vf_losses = sac.train()
 
     # Demonstrate
     env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
 
-    observation, info = env.reset()
+    state, info = env.reset()
     terminated = truncated = False
     while not (terminated or truncated):
-        action = env.action_space.sample()
-        observation, reward, terminated, truncated, info = env.step(action)
+        action = sac.select_action(state)
+        state, reward, terminated, truncated, info = env.step(action)
     env.close()
 
     # Plot
+    plt.figure(figsize=(8, 10))
+    plt.subplot(3, 1, 1)
+    plt.title('rewards')
     plt.plot(train_rewards)
+
+    plt.subplot(3, 2, 3)
+    plt.title('Q1 loss')
+    plt.plot(qf1_losses)
+
+    plt.subplot(3, 2, 4)
+    plt.title('Q2 loss')
+    plt.plot(qf2_losses)
+
+    plt.subplot(3, 2, 5)
+    plt.title('policy loss')
+    plt.plot(policy_losses)
+
+    plt.subplot(3, 2, 6)
+    plt.title('V loss')
+    plt.plot(vf_losses)
+
     plt.show()
