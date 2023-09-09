@@ -1,4 +1,4 @@
-from mlp import MLP
+from mlp import MLP, PolicyMLP
 from sac import SAC
 
 import gymnasium as gym
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     action_num = env.action_space.shape[0]
     hidden_layer_num = 256
 
-    policy = MLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
+    policy = PolicyMLP(observation_num, hidden_layer_num, hidden_layer_num, action_num)
     qf1 = MLP(observation_num + action_num, hidden_layer_num, hidden_layer_num, 1)
     qf2 = MLP(observation_num + action_num, hidden_layer_num, hidden_layer_num, 1)
     vf = MLP(observation_num, hidden_layer_num, hidden_layer_num, 1)
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     lr = 3e-4
     scale_reward = 5
     discount = 0.99
-    episode_num = 100
+    episode_num = 200
     batch_size = 256
 
     sac = SAC(
@@ -51,11 +51,14 @@ if __name__ == '__main__':
 
     # Demonstrate
     env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
+    policy.to('cpu')
 
     state, info = env.reset()
     terminated = truncated = False
     while not (terminated or truncated):
-        action = sac.select_action(state)
+        state_tensor = tensor(state, dtype=float32).unsqueeze(0)
+        action, _ = policy.select_actions(state_tensor, evaluate=True)
+        action = action.detach().numpy()[0]
         state, reward, terminated, truncated, info = env.step(action)
     env.close()
 

@@ -4,10 +4,11 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from torch import Tensor, tensor, float32, uint8
+from torch import tensor, float32, uint8, pow
 from torch import nn
 from torch.optim import Adam
 from torch.distributions import Normal
+from torch.nn import functional as F
 
 class SAC:
     def __init__(
@@ -51,28 +52,6 @@ class SAC:
         for target_param, param in zip(self._smooth_vf.parameters(), self._vf.parameters()):
             target_param.data.copy_(param.data)
 
-    def sample_actions(
-            self,
-            batch_state: Tensor
-    ) -> Tuple[Tensor, Tensor]:
-        policy_output = self._policy(batch_state)
-        normal = Normal(policy_output, torch.ones_like(policy_output))
-        x_t = normal.rsample()
-        actions = torch.tanh(x_t)
-
-        log_prob = normal.log_prob(x_t)
-        log_prob -= torch.log(1 - actions.pow(2) + self._epsilon)
-        log_prob = log_prob.sum(1, keepdim=True)
-        
-        return actions, log_prob
-    
-    def select_action(
-            self,
-            state: np.ndarray
-    ) -> np.ndarray:
-        state = tensor(state, dtype=float32).to(self._device).unsqueeze(0)
-        return self._policy(state).detach().cpu().numpy()[0]
-
     def _update_networks(self):
         batch = self._pool.random_batch(self._batch_size)
         
@@ -92,14 +71,18 @@ class SAC:
         with torch.no_grad():
             vf_next = self._smooth_vf(batch_next_state)
             ys = self._scale_reward * batch_reward + (1 - batch_done) * self._discount * vf_next
-            sample_actions, sample_log_pi = self.sample_actions(batch_state)
+            sample_actions, sample_log_pi = self._policy.select_actions(batch_state)
             min_qf_t = torch.min(qf1_t, qf2_t)
-            normal = Normal(self._policy(batch_state), torch.ones_like(batch_actions))
-            log_pi = normal.log_prob(batch_actions)
+
+            # action_mean, action_std = self._policy(batch_state)
+            # normal = Normal(action_mean, action_std)
+            # log_pi = normal.log_prob(batch_actions)
 
         # Update qf1, qf2
-        qf1_loss = 0.5 * torch.mean((ys - qf1_t)**2)
-        qf2_loss = 0.5 * torch.mean((ys - qf2_t)**2)
+        qf1_loss = 0.5 * torch.mean(torch.pow(ys - qf1_t, 2))
+        qf2_loss = 0.5 * torch.mean(torch.pow(ys - qf2_t, 2))
+        # qf1_loss = F.mse_loss(qf1_t, ys)
+        # qf2_loss = F.mse_loss(qf2_t, ys)
 
         qf1_optimizer.zero_grad()
         qf2_optimizer.zero_grad()
@@ -122,7 +105,8 @@ class SAC:
         # Update vf
         vf_t = self._vf(batch_state)
 
-        vf_loss = 0.5 * torch.mean((vf_t - (min_qf_t - log_pi))**2)
+        vf_loss = 0.5 * torch.mean(torch.pow(vf_t - (min_qf_t - sample_log_pi), 2))
+        # vf_loss = F.mse_loss(vf_t, torch.mean(min_qf_t - sample_log_pi))
 
         vf_optimizer.zero_grad()
         vf_loss.backward()
@@ -143,6 +127,7 @@ class SAC:
         qf2_losses = []
         policy_losses = []
         vf_losses = []
+
         # At each episode
         for episode in range(self._episode_num):
             state, info = self._env.reset()
@@ -152,13 +137,12 @@ class SAC:
             # At each step
             while not (terminated or truncated):
                 state_tensor = tensor(state, dtype=float32).to(self._device).unsqueeze(0)
-                actions_tensor, log_pi = self.sample_actions(state_tensor) # 3
-                actions = actions_tensor.to('cpu').detach().numpy()[0]
-                next_state, reward, terminated, truncated, info = self._env.step(actions) # 5
+                actions, _ = self._policy.select_actions(state_tensor)
+                actions = actions.detach().cpu().numpy()[0]
+                next_state, reward, terminated, truncated, info = self._env.step(actions)
 
                 self._pool.add_sample(state, actions, reward, terminated or truncated, next_state)
                 episode_reward += reward
-            self._env.close()
 
             self.episode_rewards.append(episode_reward)
             if episode % 20 == 0:
@@ -169,10 +153,10 @@ class SAC:
             qf1_loss, qf2_loss, policy_loss, vf_loss = self._update_networks()
             self._smooth_target()
 
-            qf1_losses.append(qf1_loss.to('cpu').detach().item())
-            qf2_losses.append(qf2_loss.to('cpu').detach().item())
-            policy_losses.append(policy_loss.to('cpu').detach().item())
-            vf_losses.append(vf_loss.to('cpu').detach().item())
+            qf1_losses.append(qf1_loss.detach().cpu().item())
+            qf2_losses.append(qf2_loss.detach().cpu().item())
+            policy_losses.append(policy_loss.detach().cpu().item())
+            vf_losses.append(vf_loss.detach().cpu().item())
         print('train complete')
 
         return self.episode_rewards, qf1_losses, qf2_losses, policy_losses, vf_losses
