@@ -64,7 +64,7 @@ class PolicyMLP(nn.Module):
         x = relu(x)
         x = self.fc_2(x)
         x = relu(x)
-        
+
         mean = self.fc_mean(x)
         std = clamp(self.fc_std(x), LOG_SIG_MIN, LOG_SIG_MAX)
         return mean, std
@@ -87,5 +87,5 @@ class PolicyMLP(nn.Module):
         
         if evaluate:
             actions = torch.tanh(mean)
-        # print(actions)
+            print(actions, log_prob)
         return actions, log_prob

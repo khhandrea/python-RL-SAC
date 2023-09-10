@@ -9,9 +9,9 @@ from typing import Tuple
 
 if __name__ == '__main__':
     ENV = 'Ant-v4'
-    HEALTHY_Z_RANGE = (0.2, 1.0)
+    HEALTHY_Z_RANGE = (0.3, 1.0)
 
-    env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE)
+    env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
 
     observation_num = env.observation_space.shape[0]
     action_num = env.action_space.shape[0]
@@ -28,8 +28,11 @@ if __name__ == '__main__':
     lr = 3e-4
     scale_reward = 5
     discount = 0.99
-    episode_num = 200
     batch_size = 256
+    start_step = 2000
+    num_step = 10000
+    evaluate_episode = 10
+    evaluate_term = 30
 
     sac = SAC(
         env=env,
@@ -43,8 +46,11 @@ if __name__ == '__main__':
         lr=lr,
         scale_reward=scale_reward,
         discount=discount,
-        episode_num=episode_num,
-        batch_size=batch_size
+        batch_size=batch_size,
+        start_step=start_step,
+        num_step=num_step,
+        evaluate_episode=evaluate_episode,
+        evaluate_term=evaluate_term
     )
 
     train_rewards, qf1_losses, qf2_losses, policy_losses, vf_losses = sac.train()
