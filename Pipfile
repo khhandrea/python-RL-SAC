@@ -9,6 +9,7 @@ cython = "<3"
 mujoco-py = ">=2.1,<2.2"
 matplotlib = "*"
 torch = "==2.0.1"
+tensorboard = "*"
 
 [dev-packages]
 

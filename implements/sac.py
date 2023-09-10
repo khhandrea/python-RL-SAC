@@ -9,6 +9,7 @@ from torch import tensor, float32, uint8
 from torch import nn
 from torch.optim import Adam
 from torch.nn import functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 class SAC:
     def __init__(
@@ -17,8 +18,8 @@ class SAC:
             policy: nn.Module, 
             qf1: nn.Module, 
             qf2: nn.Module, 
-            vf: nn.Module, 
-            smooth_vf: nn.Module,
+            smooth_qf1: nn.Module, 
+            smooth_qf2: nn.Module,
             pool_size: int,
             tau: float,
             lr: float,
@@ -39,12 +40,12 @@ class SAC:
         self._policy = policy.to(device=self._device)
         self._qf1 = qf1.to(device=self._device)
         self._qf2 = qf2.to(device=self._device)
-        self._vf = vf.to(device=self._device)
-        self._smooth_vf = smooth_vf.to(device=self._device)
+        self._smooth_qf1 = smooth_qf1.to(device=self._device)
+        self._smooth_qf2 = smooth_qf2.to(device=self._device)
         self._pool = ReplayBuffer(env, pool_size)
         self._tau = tau
         self._lr = lr
-        self._scale_reward = scale_reward
+        self._alpha = 1. / scale_reward
         self._discount = discount
         self._batch_size = batch_size
         self._start_step = start_step
@@ -54,26 +55,25 @@ class SAC:
 
         self.episode_rewards = []
 
-        # Initialize smooth value function
-        for target_param, param in zip(self._smooth_vf.parameters(), self._vf.parameters()):
+        # Initialize smooth Q function
+        for target_param, param in zip(self._smooth_qf1.parameters(), self._qf1.parameters()):
+            target_param.data.copy_(param.data)
+        for target_param, param in zip(self._smooth_qf2.parameters(), self._qf2.parameters()):
             target_param.data.copy_(param.data)
 
         self._qf1_optimizer = Adam(self._qf1.parameters(), lr=self._lr)
         self._qf2_optimizer = Adam(self._qf2.parameters(), lr=self._lr)
         self._policy_optimizer = Adam(self._policy.parameters(), lr=self._lr)
-        self._vf_optimizer = Adam(self._vf.parameters(), lr=self._lr)
 
-    def train(self) -> float:
-        qf1_losses = []
-        qf2_losses = []
-        policy_losses = []
-        vf_losses = []
-        total_step = 0
-        total_episode = 0
+        self._writer = SummaryWriter()
 
+        self._total_step = 0
+        self._total_episode = 0
+
+    def train(self) -> None:
         # At each episode
         try:
-            while total_step < self._num_step:
+            while self._total_step < self._num_step:
                 state, info = self._env.reset()
                 terminated = truncated = False
                 episode_reward = 0
@@ -82,7 +82,7 @@ class SAC:
                 while not (terminated or truncated):
 
                     # Environment step (default: 1)
-                    if total_step < self._start_step:
+                    if self._total_step < self._start_step:
                         actions = self._env.action_space.sample()
                     else:
                         state_tensor = tensor(state, dtype=float32).to(self._device).unsqueeze(0)
@@ -94,31 +94,36 @@ class SAC:
                     self._pool.add_sample(state, actions, reward, terminated, next_state)
                     state = next_state
                     episode_reward += reward
-                    total_step += 1
+                    self._total_step += 1
 
                     # Gradient step (default: 1)
                     if self._pool.size >= self._batch_size:
-                        qf1_loss, qf2_loss, policy_loss, vf_loss = self._update_networks()
+                        self._update_networks()
                         self._smooth_target()
 
-                        qf1_losses.append(qf1_loss.detach().cpu().item())
-                        qf2_losses.append(qf2_loss.detach().cpu().item())
-                        policy_losses.append(policy_loss.detach().cpu().item())
-                        vf_losses.append(vf_loss.detach().cpu().item())
-
-                total_episode += 1
-                self.episode_rewards.append(episode_reward)
-                print(f'Episode {total_episode:>4d} ({total_step:>5d} steps)')
-                if (total_episode % self._evaluate_term == 0) and total_step > self._start_step :
+                self._total_episode += 1
+                self._writer.add_scalar('reward', episode_reward, self._total_episode)
+                if (self._total_episode % self._evaluate_term == 0) and self._total_step > self._start_step :
+                    print(f'Episode {self._total_episode:>4d} end. ({self._total_step:>5d} steps)')
                     self._evaluate()
         except Exception as e:
             print('train incomplete with error:')
             print(e)
-        finally:
+        else:
             print('train complete')
-            return self.episode_rewards, qf1_losses, qf2_losses, policy_losses, vf_losses
+        finally:
+            self._writer.close()
+            torch.save({'policy_state_dict': self._policy.state_dict(),
+                    'q1_state_dict': self._qf1.state_dict(),
+                    'q2_state_dict': self._qf2.state_dict(),
+                    'smooth_q1_state_dict': self._smooth_qf1.state_dict(),
+                    'smooth_q2_state_dict': self._smooth_qf2.state_dict(),
+                    'q1_optimizer_state_dict': self._qf1_optimizer.state_dict(),
+                    'q2_optimizer_state_dict': self._qf2_optimizer.state_dict(),
+                    'policy_optimizer_state_dict': self._policy_optimizer.state_dict()}, './models.pth')
+            print('save completely')
 
-    def _update_networks(self):
+    def _update_networks(self) -> None:
         batch = self._pool.random_batch(self._batch_size)
         
         batch_state = tensor(batch['state'], dtype=float32).to(self._device)
@@ -127,17 +132,18 @@ class SAC:
         batch_done = tensor(batch['done'], dtype=uint8).to(self._device)
         batch_next_state = tensor(batch['next_state'], dtype=float32).to(self._device)
 
-        qf1_t = self._qf1(torch.cat([batch_state, batch_actions], 1))
-        qf2_t = self._qf2(torch.cat([batch_state, batch_actions], 1))
         with torch.no_grad():
-            vf_next = self._smooth_vf(batch_next_state)
-            ys = self._scale_reward * batch_reward + (1 - batch_done) * self._discount * vf_next
-            sample_actions, sample_log_pi = self._policy.select_actions(batch_state)
-            min_qf_t = torch.min(qf1_t, qf2_t)
+            next_state_action, next_state_log_pi = self._policy.select_actions(batch_next_state)
+            qf1_next_target = self._smooth_qf1(torch.cat([batch_next_state, next_state_action], 1))
+            qf2_next_target = self._smooth_qf2(torch.cat([batch_next_state, next_state_action], 1))
+            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self._alpha * next_state_log_pi
+            next_q_value = batch_reward +  self._discount * (1 - batch_done) * min_qf_next_target[:, 0]
+        qf1_t = self._qf1(torch.cat([batch_state, batch_actions], 1))[:, 0]
+        qf2_t = self._qf2(torch.cat([batch_state, batch_actions], 1))[:, 0]
 
         # Update qf1, qf2
-        qf1_loss = 0.5 * F.mse_loss(ys, qf1_t)
-        qf2_loss = 0.5 * torch.mean(torch.pow(ys - qf2_t, 2))
+        qf1_loss = 0.5 * F.mse_loss(qf1_t, next_q_value)
+        qf2_loss = 0.5 * F.mse_loss(qf2_t, next_q_value)
 
         self._qf1_optimizer.zero_grad()
         self._qf2_optimizer.zero_grad()
@@ -147,31 +153,26 @@ class SAC:
         self._qf2_optimizer.step()
 
         # Update policy
+        sample_actions, sample_log_pi = self._policy.select_actions(batch_state)
         qf1_pi = self._qf1(torch.cat([batch_state, sample_actions], 1))
         qf2_pi = self._qf2(torch.cat([batch_state, sample_actions], 1))
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
-        policy_loss = torch.mean(sample_log_pi - min_qf_pi)
+        policy_loss = torch.mean(self._alpha * sample_log_pi - min_qf_pi)
 
         self._policy_optimizer.zero_grad()
         policy_loss.backward()
         self._policy_optimizer.step()
-        
-        # Update vf
-        vf_t = self._vf(batch_state)
-        with torch.no_grad():
-            vf_target = min_qf_t - sample_log_pi
 
-        vf_loss = 0.5 * torch.mean(torch.pow(vf_t - vf_target, 2))
-
-        self._vf_optimizer.zero_grad()
-        vf_loss.backward()
-        self._vf_optimizer.step()
-
-        return qf1_loss, qf2_loss, policy_loss, vf_loss
+        # return qf1_loss, qf2_loss, policy_loss
+        self._writer.add_scalar('qf1_loss', qf1_loss, self._total_step)
+        self._writer.add_scalar('qf2_loss', qf2_loss, self._total_step)
+        self._writer.add_scalar('policy_loss', policy_loss, self._total_step)
 
     def _smooth_target(self):
-        for target_param, param in zip(self._smooth_vf.parameters(), self._vf.parameters()):
+        for target_param, param in zip(self._smooth_qf1.parameters(), self._qf1.parameters()):
+            target_param.data.copy_(target_param.data * (1.0 - self._tau) + param.data * self._tau)
+        for target_param, param in zip(self._smooth_qf2.parameters(), self._qf2.parameters()):
             target_param.data.copy_(target_param.data * (1.0 - self._tau) + param.data * self._tau)
 
     def _evaluate(self):

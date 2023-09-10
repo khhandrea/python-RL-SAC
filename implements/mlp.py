@@ -87,5 +87,4 @@ class PolicyMLP(nn.Module):
         
         if evaluate:
             actions = torch.tanh(mean)
-            print(actions, log_prob)
         return actions, log_prob
