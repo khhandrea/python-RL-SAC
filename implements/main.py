@@ -53,14 +53,14 @@ if __name__ == '__main__':
         evaluate_term=evaluate_term
     )
 
-    sac.train()
+    # sac.train()
 
     # Demonstrate
     env = gym.make(ENV, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
     policy.to('cpu')
 
     # Load models
-    models = load('./models.pth')
+    models = load('./models_0.5M.pth')
     policy.load_state_dict(models['policy_state_dict'])
     qf1.load_state_dict(models['q1_state_dict'])
     qf2.load_state_dict(models['q2_state_dict'])
