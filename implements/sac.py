@@ -24,24 +24,19 @@ class SAC(Agent):
 
         self.__pool_size = args.pool_size
         self.__tau = args.tau
-        self.__lr = args.lr
         self.__alpha = 1. / args.scale_reward
         self.__discount = args.discount
-
-        self.__epsilon = 1e-6
-        hidden_layer_num = 256
 
         self.__policy = PolicyMLP(state_num, hidden_layer_num, hidden_layer_num, action_num).to(device=self.__device)
         self.__qf1 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
         self.__qf2 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
         self.__smooth_qf1 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
         self.__smooth_qf2 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
+        self.__qf1_optimizer = Adam(self.__qf1.parameters(), lr=args.lr)
+        self.__qf2_optimizer = Adam(self.__qf2.parameters(), lr=args.lr)
+        self.__policy_optimizer = Adam(self.__policy.parameters(), lr=args.lr)
 
         self.__smooth_target(initialize=True)
-
-        self.__qf1_optimizer = Adam(self.__qf1.parameters(), lr=self.__lr)
-        self.__qf2_optimizer = Adam(self.__qf2.parameters(), lr=self.__lr)
-        self.__policy_optimizer = Adam(self.__policy.parameters(), lr=self.__lr)
 
 
     def update_networks(

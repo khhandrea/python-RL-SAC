@@ -13,7 +13,7 @@ Reinforcement learning soft actor critic algorithm tutorial
 - v SAC가 agent를 상속
 - v 함수, 변수에 private (prefix '__') 구현
 - v actions, states -> action, state 통일
-- SAC에서 hyperparameter로 된 부분 main으로 빼기 (epsilon, MLP size 256, mlp의 SIG 등)
+- v SAC에서 hyperparameter로 된 부분 main으로 빼기 (mlp의 SIG 등)
 - reward 그래프
 - checkpoint
 - typing 엄격하게
