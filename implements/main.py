@@ -22,20 +22,26 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate_term', type=int, default=30)
     parser.add_argument('--healthy_min', type=float, default=0.3)
     parser.add_argument('--load', default='')
-    parser.add_argument('--load_and_train', action='store_true')
+    parser.add_argument('--load_and_train', default='')
     parser.add_argument('--skip_test', action='store_true')
     parser.add_argument('--skip_demo', action='store_true')
     args = parser.parse_args()
-    
+
+    if args.load and args.load_and_train:
+        raise Exception("expected only one argument between '--load' and 'load_and_train'")
 
     trainer = Trainer(args)    
 
     # Load models
-    if args.load or args.load_and_train:
-        trainer.load_agent()
+    if args.load:
+        trainer.load_agent(args.load)
+    elif args.load_and_train:
+        trainer.load_agent(args.load_and_train)
+
     # Train
     if (not args.load) or args.load_and_train:
         trainer.train()
+        
     # Demonstrates
     if not args.skip_demo:
         trainer.test()

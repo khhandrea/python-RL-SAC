@@ -3,18 +3,25 @@
 Reinforcement learning soft actor critic algorithm tutorial
 
 ## Todo
+
 - v argparser
-- checkpoint
+- v Network는 SAC 안에서 정의
 - v refactoring
-- reward 그래프
+- v sac agent select_action
+- v SAC에 save, load 추가
 
-- sac agent select_action
-
+- v SAC가 agent를 상속
 - 함수, 변수에 private (prefix '__') 구현
 - actions, states -> action, state 통일
-- Network는 SAC 안에서 정의
 - SAC에서 hyperparameter로 된 부분 main으로 빼기 (epsilon, MLP size 256 등)
-- SAC에 save, load 추가
-- try catch 어떻게?
+- reward 그래프
+- checkpoint
+- typing 엄격하게
 - import 정리
+
+- hyperparameter yml로?
+- docs 만들기
+
+- try catch 어떻게?
+- package와 \_\_init\_\_ 만들기
 - 우분투 세팅

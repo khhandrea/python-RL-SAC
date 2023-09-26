@@ -1,3 +1,4 @@
+from agent import Agent
 from mlp import MLP, PolicyMLP
 from replay_buffer import ReplayBuffer
 
@@ -11,7 +12,7 @@ from torch.nn import functional as F
 from typing import Tuple
 from argparse import ArgumentParser
 
-class SAC:
+class SAC(Agent):
     def __init__(
             self,
             state_num: int,
@@ -121,8 +122,11 @@ class SAC:
         state_tensor = torch.tensor(state, dtype=float32).to(self.__device).unsqueeze(0)
         return self.__policy.select_actions(state_tensor, evaluate)
 
-    def load(self):
-        models = load('./models_0.5M.pth')
+    def load(
+            self,
+            path:str
+        ) -> None:
+        models = load(path)
         self.__policy.load_state_dict(models['policy_state_dict'])
         self.__qf1.load_state_dict(models['q1_state_dict'])
         self.__qf2.load_state_dict(models['q2_state_dict'])

@@ -16,7 +16,7 @@ class Trainer:
         self.__batch_size = args.batch_size
 
         HEALTHY_Z_RANGE = (self.__healthy_min, 1.0)
-        self.__env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE)
+        self.__env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
         
         self.__state_num = self.__env.observation_space.shape[0]
         self.__action_num = self.__env.action_space.shape[0]
@@ -87,16 +87,19 @@ class Trainer:
 
     def test(self):
         HEALTHY_Z_RANGE = (self.__healthy_min, 1.0)
-        env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE)
+        env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
 
         state, info = env.reset()
         terminated = truncated = False
         while not (terminated or truncated):
             action, _ = self.__sac_agent.select_action(state, evaluate=True)
-            action = action.detach().numpy()[0]
+            action = action.detach().cpu().numpy()[0]
             state, reward, terminated, truncated, info = env.step(action)
         env.close()
         pass
 
-    def load_agent(self):
-        self.__sac_agent.load_model()
+    def load_agent(
+            self,
+            path:str
+        ) -> None:
+        self.__sac_agent.load(path)
