@@ -42,14 +42,14 @@ class Trainer:
 
                 # Environment step (default: 1)
                 if total_step < self.__start_step:
-                    actions = self.__env.action_space.sample()
+                    action = self.__env.action_space.sample()
                 else:
-                    actions, _ = self.__sac_agent.select_action(state)
-                    actions = actions.detach().cpu().numpy()[0]
+                    action, _ = self.__sac_agent.select_action(state)
+                    action = action.detach().cpu().numpy()[0]
 
-                next_state, reward, terminated, truncated, info = self.__env.step(actions)
+                next_state, reward, terminated, truncated, info = self.__env.step(action)
 
-                pool.add_sample(state, actions, reward, terminated, next_state)
+                pool.add_sample(state, action, reward, terminated, next_state)
                 state = next_state
                 episode_reward += reward
                 total_step += 1

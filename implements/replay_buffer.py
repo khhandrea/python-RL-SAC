@@ -8,48 +8,48 @@ class ReplayBuffer:
             action_num: int,
             max_buffer_size: int):
 
-        self._max_buffer_size = max_buffer_size
+        self.__max_buffer_size = max_buffer_size
 
-        self._state = np.zeros((max_buffer_size, state_num))
-        self._actions = np.zeros((max_buffer_size, action_num))
-        self._rewards = np.zeros(max_buffer_size)
-        self._dones = np.zeros(max_buffer_size, dtype='uint8')
-        self._next_state = np.zeros((max_buffer_size, state_num))
+        self.__state = np.zeros((max_buffer_size, state_num))
+        self.__action = np.zeros((max_buffer_size, action_num))
+        self.__rewards = np.zeros(max_buffer_size)
+        self.__dones = np.zeros(max_buffer_size, dtype='uint8')
+        self.__next_state = np.zeros((max_buffer_size, state_num))
 
-        self._top = 0
-        self._size = 0
+        self.__top = 0
+        self.__size = 0
 
     def add_sample(
             self,
             state: np.ndarray,
-            actions: np.ndarray,
+            action: np.ndarray,
             reward: float,
             done: bool,
             next_state: np.ndarray
     ):
-        self._state[self._top] = state
-        self._actions[self._top] = actions
-        self._rewards[self._top] = reward
-        self._dones[self._top] = done
-        self._next_state[self._top] = next_state
+        self.__state[self.__top] = state
+        self.__action[self.__top] = action
+        self.__rewards[self.__top] = reward
+        self.__dones[self.__top] = done
+        self.__next_state[self.__top] = next_state
 
-        self._top = (self._top + 1) % self._max_buffer_size
-        if self._size < self._max_buffer_size:
-            self._size += 1
+        self.__top = (self.__top + 1) % self.__max_buffer_size
+        if self.__size < self.__max_buffer_size:
+            self.__size += 1
 
     def random_batch(
             self,
             batch_size: int
     ):
-        indices = np.random.randint(0, self._size, batch_size)
+        indices = np.random.randint(0, self.__size, batch_size)
         return {
-            'state': self._state[indices],
-            'actions': self._actions[indices],
-            'reward': self._rewards[indices],
-            'done': self._dones[indices],
-            'next_state': self._next_state[indices]
+            'state': self.__state[indices],
+            'action': self.__action[indices],
+            'reward': self.__rewards[indices],
+            'done': self.__dones[indices],
+            'next_state': self.__next_state[indices]
         }
 
     @property
     def size(self):
-        return self._size
+        return self.__size

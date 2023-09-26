@@ -69,7 +69,7 @@ class PolicyMLP(nn.Module):
         std = clamp(self.fc_std(x), LOG_SIG_MIN, LOG_SIG_MAX)
         return mean, std
     
-    def select_actions(
+    def select_action(
             self, 
             state: Tensor,
             evaluate: bool=False
@@ -78,13 +78,13 @@ class PolicyMLP(nn.Module):
         std = torch.exp(log_std)
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
-        actions = torch.tanh(x_t)
+        action = torch.tanh(x_t)
         log_prob = normal.log_prob(x_t)
 
         # Enforcing Action Bound
-        log_prob -= torch.log((1 - actions.pow(2)) + epsilon)
+        log_prob -= torch.log((1 - action.pow(2)) + epsilon)
         log_prob = log_prob.sum(1, keepdim=True)
         
         if evaluate:
-            actions = torch.tanh(mean)
-        return actions, log_prob
+            action = torch.tanh(mean)
+        return action, log_prob

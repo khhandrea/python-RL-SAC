@@ -52,19 +52,19 @@ class SAC(Agent):
         batch = pool.random_batch(batch_size)
         
         batch_state = tensor(batch['state'], dtype=float32).to(self.__device)
-        batch_actions = tensor(batch['actions'], dtype=float32).to(self.__device)
+        batch_action = tensor(batch['action'], dtype=float32).to(self.__device)
         batch_reward = tensor(batch['reward'], dtype=float32).to(self.__device)
         batch_done = tensor(batch['done'], dtype=uint8).to(self.__device)
         batch_next_state = tensor(batch['next_state'], dtype=float32).to(self.__device)
 
         with torch.no_grad():
-            next_state_action, next_state_log_pi = self.__policy.select_actions(batch_next_state)
+            next_state_action, next_state_log_pi = self.__policy.select_action(batch_next_state)
             qf1_next_target = self.__smooth_qf1(torch.cat([batch_next_state, next_state_action], 1))
             qf2_next_target = self.__smooth_qf2(torch.cat([batch_next_state, next_state_action], 1))
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.__alpha * next_state_log_pi
             next_q_value = batch_reward +  self.__discount * (1 - batch_done) * min_qf_next_target[:, 0]
-        qf1_t = self.__qf1(torch.cat([batch_state, batch_actions], 1))[:, 0]
-        qf2_t = self.__qf2(torch.cat([batch_state, batch_actions], 1))[:, 0]
+        qf1_t = self.__qf1(torch.cat([batch_state, batch_action], 1))[:, 0]
+        qf2_t = self.__qf2(torch.cat([batch_state, batch_action], 1))[:, 0]
 
         # Update qf1, qf2
         qf1_loss = 0.5 * F.mse_loss(qf1_t, next_q_value)
@@ -78,9 +78,9 @@ class SAC(Agent):
         self.__qf2_optimizer.step()
 
         # Update policy
-        sample_actions, sample_log_pi = self.__policy.select_actions(batch_state)
-        qf1_pi = self.__qf1(torch.cat([batch_state, sample_actions], 1))
-        qf2_pi = self.__qf2(torch.cat([batch_state, sample_actions], 1))
+        sample_action, sample_log_pi = self.__policy.select_action(batch_state)
+        qf1_pi = self.__qf1(torch.cat([batch_state, sample_action], 1))
+        qf2_pi = self.__qf2(torch.cat([batch_state, sample_action], 1))
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
         policy_loss = torch.mean(self.__alpha * sample_log_pi - min_qf_pi)
@@ -120,7 +120,7 @@ class SAC(Agent):
             state: ndarray, 
             evaluate: bool = False):
         state_tensor = torch.tensor(state, dtype=float32).to(self.__device).unsqueeze(0)
-        return self.__policy.select_actions(state_tensor, evaluate)
+        return self.__policy.select_action(state_tensor, evaluate)
 
     def load(
             self,
