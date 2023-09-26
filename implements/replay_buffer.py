@@ -4,18 +4,17 @@ import numpy as np
 class ReplayBuffer:
     def __init__(
             self, 
-            env: gym.Env,
+            state_num: int,
+            action_num: int,
             max_buffer_size: int):
-        action_dim = env.action_space.shape[0]
-        observation_dim = env.observation_space.shape[0]
 
         self._max_buffer_size = max_buffer_size
 
-        self._state = np.zeros((max_buffer_size, observation_dim))
-        self._actions = np.zeros((max_buffer_size, action_dim))
+        self._state = np.zeros((max_buffer_size, state_num))
+        self._actions = np.zeros((max_buffer_size, action_num))
         self._rewards = np.zeros(max_buffer_size)
         self._dones = np.zeros(max_buffer_size, dtype='uint8')
-        self._next_state = np.zeros((max_buffer_size, observation_dim))
+        self._next_state = np.zeros((max_buffer_size, state_num))
 
         self._top = 0
         self._size = 0
