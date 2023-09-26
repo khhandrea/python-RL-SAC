@@ -1,10 +1,9 @@
 from typing import Tuple
 
 import torch
-from torch import Tensor
-from torch import nn, clamp
+from torch import Tensor, nn
 from torch.distributions import Normal
-from torch.nn.functional import relu
+from torch.nn import functional as F
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -32,9 +31,9 @@ class MLP(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.fc_1(x)
-        x = relu(x)
+        x = F.relu(x)
         x = self.fc_2(x)
-        x = relu(x)
+        x = F.relu(x)
         x = self.fc_3(x)
         return x
     
@@ -61,12 +60,12 @@ class PolicyMLP(nn.Module):
 
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         x = self.fc_1(x)
-        x = relu(x)
+        x = F.relu(x)
         x = self.fc_2(x)
-        x = relu(x)
+        x = F.relu(x)
 
         mean = self.fc_mean(x)
-        std = clamp(self.fc_std(x), LOG_SIG_MIN, LOG_SIG_MAX)
+        std = torch.clamp(self.fc_std(x), LOG_SIG_MIN, LOG_SIG_MAX)
         return mean, std
     
     def select_action(

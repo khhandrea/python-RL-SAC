@@ -1,8 +1,11 @@
+import gymnasium as gym
+from torch.utils.tensorboard import SummaryWriter
+
 from replay_buffer import ReplayBuffer
 from sac import SAC
 
-import gymnasium as gym
-from torch.utils.tensorboard import SummaryWriter
+
+from typing import List
 
 class Trainer:
     def __init__(self, args):
@@ -14,9 +17,10 @@ class Trainer:
         self.__evaluate_term = args.evaluate_term
         self.__pool_size = args.pool_size
         self.__batch_size = args.batch_size
+        self.__discount = args.discount
 
         HEALTHY_Z_RANGE = (self.__healthy_min, 1.0)
-        self.__env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
+        self.__env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE)
         
         self.__state_num = self.__env.observation_space.shape[0]
         self.__action_num = self.__env.action_space.shape[0]
@@ -24,7 +28,7 @@ class Trainer:
         self.__sac_agent = SAC(self.__state_num, self.__action_num, args)
         
 
-    def train(self):
+    def train(self) -> None:
         total_step = 0
         total_episode = 0
 
@@ -35,7 +39,8 @@ class Trainer:
         while total_step < self.__num_step:
             state, info = self.__env.reset()
             terminated = truncated = False
-            episode_reward = 0
+            rewards = []
+            total_episode_step = total_step
 
             # At each step
             while not (terminated or truncated):
@@ -51,15 +56,19 @@ class Trainer:
 
                 pool.add_sample(state, action, reward, terminated, next_state)
                 state = next_state
-                episode_reward += reward
+                rewards.append(reward)
                 total_step += 1
 
                 # Gradient step (default: 1)
                 if pool.size >= self.__batch_size:
-                    scalar_dict = self.__sac_agent.update_networks(pool, self.__batch_size)
+                    scalar_dict = self.__sac_agent.update_parameters(pool, self.__batch_size)
 
                     for name in scalar_dict:
                         writer.add_scalar(name, scalar_dict[name], total_step)
+
+            for idx, G in enumerate(self.__get_returns(rewards)):
+                writer.add_scalar('return', G, total_episode_step + idx)
+            writer.add_scalar('reward', sum(rewards), total_episode)
 
             total_episode += 1
 
@@ -85,7 +94,7 @@ class Trainer:
         
         self.__sac_agent.save()
 
-    def test(self):
+    def test(self) -> None:
         HEALTHY_Z_RANGE = (self.__healthy_min, 1.0)
         env = gym.make(self.__env_name, healthy_z_range=HEALTHY_Z_RANGE, render_mode='human')
 
@@ -96,7 +105,20 @@ class Trainer:
             action = action.detach().cpu().numpy()[0]
             state, reward, terminated, truncated, info = env.step(action)
         env.close()
-        pass
+
+    def __get_returns(
+            self,
+            rewards: List[float]
+    ) -> List[float]:
+        returns = []
+        G = 0
+
+        for reward in reversed(rewards):
+            G = reward + G * self.__discount
+            returns.insert(0, G)
+
+        return returns
+
 
     def load_agent(
             self,

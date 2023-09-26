@@ -14,11 +14,12 @@ Reinforcement learning soft actor critic algorithm tutorial
 - v 함수, 변수에 private (prefix '__') 구현
 - v actions, states -> action, state 통일
 - v SAC에서 hyperparameter로 된 부분 main으로 빼기 (mlp의 SIG 등)
+- v typing 엄격하게
+- v import 정리
+
+- 코드 이쁘게
 - reward 그래프
 - checkpoint
-- typing 엄격하게
-- import 정리
-- 코드 이쁘게
 
 - PolicyMLP에 prefix '__' 못 바꿨음!
 

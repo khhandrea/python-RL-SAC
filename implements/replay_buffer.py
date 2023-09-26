@@ -1,3 +1,5 @@
+from typing import Dict, List, Any
+
 import gymnasium as gym
 import numpy as np
 
@@ -26,7 +28,7 @@ class ReplayBuffer:
             reward: float,
             done: bool,
             next_state: np.ndarray
-    ):
+    ) -> None:
         self.__state[self.__top] = state
         self.__action[self.__top] = action
         self.__rewards[self.__top] = reward
@@ -40,7 +42,7 @@ class ReplayBuffer:
     def random_batch(
             self,
             batch_size: int
-    ):
+    ) -> Dict[str, List]:
         indices = np.random.randint(0, self.__size, batch_size)
         return {
             'state': self.__state[indices],
@@ -51,5 +53,5 @@ class ReplayBuffer:
         }
 
     @property
-    def size(self):
+    def size(self) -> int:
         return self.__size

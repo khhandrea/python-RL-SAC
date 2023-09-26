@@ -1,16 +1,15 @@
-from agent import Agent
-from mlp import MLP, PolicyMLP
-from replay_buffer import ReplayBuffer
+from typing import Tuple
+from argparse import ArgumentParser
 
 from numpy import ndarray
 import torch
-from torch import tensor, float32, uint8, load  
-from torch import nn
+from torch import tensor, Tensor
 from torch.optim import Adam
 from torch.nn import functional as F
 
-from typing import Tuple
-from argparse import ArgumentParser
+from agent import Agent
+from mlp import MLP, PolicyMLP
+from replay_buffer import ReplayBuffer
 
 class SAC(Agent):
     def __init__(
@@ -27,6 +26,7 @@ class SAC(Agent):
         self.__alpha = 1. / args.scale_reward
         self.__discount = args.discount
 
+        hidden_layer_num = args.hidden_layer_num
         self.__policy = PolicyMLP(state_num, hidden_layer_num, hidden_layer_num, action_num).to(device=self.__device)
         self.__qf1 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
         self.__qf2 = MLP(state_num + action_num, hidden_layer_num, hidden_layer_num, 1).to(device=self.__device)
@@ -39,18 +39,18 @@ class SAC(Agent):
         self.__smooth_target(initialize=True)
 
 
-    def update_networks(
+    def update_parameters(
             self,
             pool: ReplayBuffer,
             batch_size: int
     ) -> None:
         batch = pool.random_batch(batch_size)
         
-        batch_state = tensor(batch['state'], dtype=float32).to(self.__device)
-        batch_action = tensor(batch['action'], dtype=float32).to(self.__device)
-        batch_reward = tensor(batch['reward'], dtype=float32).to(self.__device)
-        batch_done = tensor(batch['done'], dtype=uint8).to(self.__device)
-        batch_next_state = tensor(batch['next_state'], dtype=float32).to(self.__device)
+        batch_state = tensor(batch['state'], dtype=torch.float32).to(self.__device)
+        batch_action = tensor(batch['action'], dtype=torch.float32).to(self.__device)
+        batch_reward = tensor(batch['reward'], dtype=torch.float32).to(self.__device)
+        batch_done = tensor(batch['done'], dtype=torch.uint8).to(self.__device)
+        batch_next_state = tensor(batch['next_state'], dtype=torch.float32).to(self.__device)
 
         with torch.no_grad():
             next_state_action, next_state_log_pi = self.__policy.select_action(batch_next_state)
@@ -98,7 +98,8 @@ class SAC(Agent):
 
     def __smooth_target(
             self, 
-            initialize: bool = False):
+            initialize: bool = False
+    ) -> None:
         if initialize:
             for target_param, param in zip(self.__smooth_qf1.parameters(), self.__qf1.parameters()):
                 target_param.data.copy_(param.data)
@@ -113,22 +114,23 @@ class SAC(Agent):
     def select_action(
             self, 
             state: ndarray, 
-            evaluate: bool = False):
-        state_tensor = torch.tensor(state, dtype=float32).to(self.__device).unsqueeze(0)
+            evaluate: bool = False
+    ) -> Tuple[Tensor, Tensor]:
+        state_tensor = torch.tensor(state, dtype=torch.float32).to(self.__device).unsqueeze(0)
         return self.__policy.select_action(state_tensor, evaluate)
 
     def load(
             self,
             path:str
-        ) -> None:
-        models = load(path)
+    ) -> None:
+        models = torch.load(path)
         self.__policy.load_state_dict(models['policy_state_dict'])
         self.__qf1.load_state_dict(models['q1_state_dict'])
         self.__qf2.load_state_dict(models['q2_state_dict'])
         self.__smooth_qf1.load_state_dict(models['smooth_q1_state_dict'])
         self.__smooth_qf2.load_state_dict(models['smooth_q2_state_dict'])
 
-    def save(self):
+    def save(self) -> None:
         model_path = './models.pth'
         torch.save({'policy_state_dict': self.__policy.state_dict(),
                     'q1_state_dict': self.__qf1.state_dict(),
