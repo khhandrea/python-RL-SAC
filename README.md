@@ -17,6 +17,7 @@ Reinforcement learning soft actor critic algorithm tutorial
 - v typing 엄격하게
 - v import 정리
 
+- save 이름 format
 - 코드 이쁘게
 - reward 그래프
 - checkpoint
@@ -28,4 +29,5 @@ Reinforcement learning soft actor critic algorithm tutorial
 
 - try catch 어떻게?
 - package와 \_\_init\_\_ 만들기
+- docker 세팅
 - 우분투 세팅

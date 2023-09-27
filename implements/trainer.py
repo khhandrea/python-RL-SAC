@@ -88,6 +88,8 @@ class Trainer:
                 average_reward /= self.__evaluate_episode
                 print(f'average reward: {average_reward}')
                 print(f'Episode {total_episode:>4d} end. ({total_step:>5d} steps)')
+                self.__sac_agent.save()
+                print(f'saved model completely')
                 
         print('train complete')
         writer.close()
